@@ -53,9 +53,8 @@ def run():
     disable_ip_forwarding()
 
 if __name__ == "__main__":
-    target_ip = input("Enter target ip") 
-    spoof_ip = input("Enter spoof ip") 
-    interface = input("Enter interface") 
+    target_ip = input("Enter target ip: ") 
+    spoof_ip = input("Enter spoof ip: ") 
+    interface = input("Enter interface: ") 
     run()
-
-
+    print("Thanks for using my code :)")
