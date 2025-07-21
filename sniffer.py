@@ -13,6 +13,9 @@ def process_packet(packet):
         if cred:
             print("Print possible credential info")
 
+def get_url(packet):
+    return (packet[http.HTTPRequest].Host + packet[http.HTTPRequest].Path).decode("utf-8")
+
 keywords = {"username", "user", "password", "login", "uname", "signin", "signup", "name", "pass"}
 def get_credentials(packet):
     if packet.haslayer(scapy.Raw):
